@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "426339021725",
+    "firebase_url": "https://kiot-b4a41-default-rtdb.firebaseio.com",
+    "project_id": "kiot-b4a41",
+    "storage_bucket": "kiot-b4a41.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:426339021725:android:c680cae07169cb9b733574",
+        "android_client_info": {
+          "package_name": "com.example.kiot_order"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_bRayiVByIfNwDHbfh08-W3zU9z-Nsdo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
