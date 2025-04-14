@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../sidebar.dart';
 
 class TuitionFeeManagement extends StatefulWidget {
   const TuitionFeeManagement({Key? key}) : super(key: key);
@@ -11,145 +11,28 @@ class TuitionFeeManagement extends StatefulWidget {
 }
 
 class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
-  final List<TuitionRecord> _tuitionRecords = [];
   bool _isAddingRecord = false;
   final TextEditingController _mssvController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _classController = TextEditingController();
+  final TextEditingController _courseController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   bool _isPaid = false;
+  String _selectedPaymentMethod = 'Tiền mặt';
   String _searchQuery = '';
 
-  final NumberFormat _currencyFormat = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: 'VND',
-      decimalDigits: 0
-  );
+  final NumberFormat _currencyFormat =
+  NumberFormat.currency(locale: 'vi_VN', symbol: 'VND', decimalDigits: 0);
 
   @override
-  void initState() {
-    super.initState();
-    _loadSampleData();
-  }
-
-  void _loadSampleData() {
-    final sampleRecords = [
-      TuitionRecord(
-        id: 1,
-        mssv: '20205123',
-        name: 'Nguyễn Văn An',
-        amount: 9850000,
-        paymentDate: DateTime(2025, 3, 10),
-        isPaid: true,
-      ),
-      TuitionRecord(
-        id: 2,
-        mssv: '20205124',
-        name: 'Trần Thị Bình',
-        amount: 9850000,
-        paymentDate: DateTime(2025, 3, 12),
-        isPaid: true,
-      ),
-      TuitionRecord(
-        id: 3,
-        mssv: '20205125',
-        name: 'Lê Văn Cường',
-        amount: 10450000,
-        paymentDate: DateTime(2025, 3, 15),
-        isPaid: true,
-      ),
-      TuitionRecord(
-        id: 4,
-        mssv: '20205126',
-        name: 'Phạm Thị Dung',
-        amount: 9850000,
-        paymentDate: null,
-        isPaid: false,
-      ),
-      TuitionRecord(
-        id: 5,
-        mssv: '20205127',
-        name: 'Hoàng Văn Đạt',
-        amount: 10450000,
-        paymentDate: DateTime(2025, 3, 18),
-        isPaid: true,
-      ),
-      TuitionRecord(
-        id: 6,
-        mssv: '20205128',
-        name: 'Đỗ Thị Giang',
-        amount: 9850000,
-        paymentDate: null,
-        isPaid: false,
-      ),
-      TuitionRecord(
-        id: 7,
-        mssv: '20205129',
-        name: 'Vũ Văn Hùng',
-        amount: 10450000,
-        paymentDate: DateTime(2025, 3, 5),
-        isPaid: true,
-      ),
-      TuitionRecord(
-        id: 8,
-        mssv: '20205130',
-        name: 'Ngô Thị Lan',
-        amount: 9850000,
-        paymentDate: DateTime(2025, 3, 20),
-        isPaid: true,
-      ),
-    ];
-
-    setState(() {
-      _tuitionRecords.addAll(sampleRecords);
-    });
-  }
-
-  List<TuitionRecord> get _filteredRecords {
-    if (_searchQuery.isEmpty) {
-      return _tuitionRecords;
-    }
-
-    return _tuitionRecords.where((record) {
-      return record.mssv.contains(_searchQuery) ||
-          record.name.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-  }
-
-  void _addNewRecord() {
-    if (_mssvController.text.isEmpty ||
-        _nameController.text.isEmpty ||
-        _amountController.text.isEmpty) {
-      _showErrorSnackBar('Vui lòng điền đầy đủ thông tin');
-      return;
-    }
-
-    try {
-      final amount = double.parse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), ''));
-
-      final newRecord = TuitionRecord(
-        id: _tuitionRecords.length + 1,
-        mssv: _mssvController.text,
-        name: _nameController.text,
-        amount: amount,
-        paymentDate: _isPaid ? _selectedDate : null,
-        isPaid: _isPaid,
-      );
-
-      setState(() {
-        _tuitionRecords.add(newRecord);
-        _isAddingRecord = false;
-        _mssvController.clear();
-        _nameController.clear();
-        _amountController.clear();
-        _isPaid = false;
-        _selectedDate = DateTime.now();
-      });
-
-      _showSuccessSnackBar('Thêm bản ghi thành công');
-    } catch (e) {
-      _showErrorSnackBar('Số tiền không hợp lệ');
-    }
+  void dispose() {
+    _mssvController.dispose();
+    _nameController.dispose();
+    _classController.dispose();
+    _courseController.dispose();
+    _amountController.dispose();
+    super.dispose();
   }
 
   void _showErrorSnackBar(String message) {
@@ -170,15 +53,67 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
     );
   }
 
-  void _updatePaymentStatus(int index, bool newStatus) {
-    setState(() {
-      final record = _filteredRecords[index];
-      if (newStatus) {
-        record.paymentDate = DateTime.now();
-      } else {
-        record.paymentDate = null;
-      }
-      record.isPaid = newStatus;
+  void _addNewRecord() {
+    if (_mssvController.text.isEmpty ||
+        _nameController.text.isEmpty ||
+        _classController.text.isEmpty ||
+        _courseController.text.isEmpty ||
+        _amountController.text.isEmpty) {
+      _showErrorSnackBar('Vui lòng điền đầy đủ thông tin');
+      return;
+    }
+
+    try {
+      final amount = double.parse(_amountController.text.replaceAll(RegExp(r'[^0-9]'), ''));
+
+      FirebaseFirestore.instance.collection('tuition').add({
+        'mssv': _mssvController.text,
+        'ho_ten': _nameController.text,
+        'lop': _classController.text,
+        'khoa_hoc': _courseController.text,
+        'so_tien.can_dong': amount,
+        'phuong_thuc_thanh_toan': _isPaid ? _selectedPaymentMethod : null,
+        'ngay_thanh_toan': _isPaid ? Timestamp.fromDate(_selectedDate) : null,
+        'trang_thai_thanh_toan': _isPaid ? 'Đã đóng' : 'Chưa đóng',
+        'ma_kiosk': 'K001',
+      }).then((_) {
+        setState(() {
+          _isAddingRecord = false;
+          _mssvController.clear();
+          _nameController.clear();
+          _classController.clear();
+          _courseController.clear();
+          _amountController.clear();
+          _isPaid = false;
+          _selectedDate = DateTime.now();
+          _selectedPaymentMethod = 'Tiền mặt';
+        });
+        _showSuccessSnackBar('Thêm bản ghi thành công');
+      }).catchError((error) {
+        _showErrorSnackBar('Lỗi khi thêm bản ghi: $error');
+      });
+    } catch (e) {
+      _showErrorSnackBar('Số tiền không hợp lệ');
+    }
+  }
+
+  void _updatePaymentStatus(TuitionRecord record, bool newStatus) {
+    FirebaseFirestore.instance.collection('tuition').doc(record.id).update({
+      'trang_thai_thanh_toan': newStatus ? 'Đã đóng' : 'Chưa đóng',
+      'ngay_thanh_toan': newStatus ? Timestamp.now() : null,
+      'phuong_thuc_thanh_toan': newStatus ? 'Tiền mặt' : null,
+    }).then((_) {
+      _showSuccessSnackBar('Cập nhật trạng thái thành công');
+    }).catchError((error) {
+      _showErrorSnackBar('Lỗi khi cập nhật trạng thái: $error');
+    });
+  }
+
+  void _deleteRecord(TuitionRecord record) {
+    FirebaseFirestore.instance.collection('tuition').doc(record.id).delete().then((_) {
+      _showSuccessSnackBar('Xóa bản ghi thành công');
+    }).catchError((error) {
+      _showErrorSnackBar('Lỗi khi xóa bản ghi: $error');
     });
   }
 
@@ -202,7 +137,6 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
     return Scaffold(
       body: Row(
         children: [
-
           // Main content
           Expanded(
             child: Padding(
@@ -211,9 +145,7 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   buildTopBar(),
-
                   const SizedBox(height: 20),
-
                   // Tuition Fee Management content
                   Expanded(
                     child: Row(
@@ -251,9 +183,7 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                                   ),
                                 ],
                               ),
-
                               const SizedBox(height: 15),
-
                               // Search field
                               TextField(
                                 decoration: InputDecoration(
@@ -273,9 +203,7 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                                   });
                                 },
                               ),
-
                               const SizedBox(height: 15),
-
                               // Add new record form
                               if (_isAddingRecord)
                                 Container(
@@ -325,6 +253,30 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                                         children: [
                                           Expanded(
                                             child: TextField(
+                                              controller: _classController,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Lớp',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 15),
+                                          Expanded(
+                                            child: TextField(
+                                              controller: _courseController,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Khóa học (VD: 2023-2027)',
+                                                border: OutlineInputBorder(),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 15),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextField(
                                               controller: _amountController,
                                               decoration: const InputDecoration(
                                                 labelText: 'Số tiền học phí (VND)',
@@ -362,6 +314,24 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                                             },
                                           ),
                                           const Text('Đã đóng học phí'),
+                                          if (_isPaid) ...[
+                                            const SizedBox(width: 15),
+                                            DropdownButton<String>(
+                                              value: _selectedPaymentMethod,
+                                              onChanged: (String? newValue) {
+                                                setState(() {
+                                                  _selectedPaymentMethod = newValue!;
+                                                });
+                                              },
+                                              items: <String>['Tiền mặt', 'Chuyển khoản', 'Quét QR']
+                                                  .map<DropdownMenuItem<String>>((String value) {
+                                                return DropdownMenuItem<String>(
+                                                  value: value,
+                                                  child: Text(value),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ],
                                           const Spacer(),
                                           ElevatedButton(
                                             onPressed: _addNewRecord,
@@ -376,7 +346,6 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                                     ],
                                   ),
                                 ),
-
                               // Tuition Records Table
                               Expanded(
                                 child: Container(
@@ -392,70 +361,192 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                                     ],
                                   ),
                                   child: SingleChildScrollView(
-                                    child: DataTable(
-                                      columnSpacing: 40,
-                                      columns: const [
-                                        DataColumn(label: Text('STT')),
-                                        DataColumn(label: Text('MSSV')),
-                                        DataColumn(label: Text('Họ và tên')),
-                                        DataColumn(label: Text('Học phí')),
-                                        DataColumn(label: Text('Ngày đóng')),
-                                        DataColumn(label: Text('Trạng thái')),
-                                        DataColumn(label: Text('Thao tác')),
-                                      ],
-                                      rows: List.generate(
-                                        _filteredRecords.length,
-                                            (index) => DataRow(
-                                          cells: [
-                                            DataCell(Text('${index + 1}')),
-                                            DataCell(Text(_filteredRecords[index].mssv)),
-                                            DataCell(Text(_filteredRecords[index].name)),
-                                            DataCell(Text(_currencyFormat.format(_filteredRecords[index].amount))),
-                                            DataCell(
-                                              _filteredRecords[index].paymentDate != null
-                                                  ? Text(DateFormat('dd/MM/yyyy').format(_filteredRecords[index].paymentDate!))
-                                                  : const Text('-'),
-                                            ),
-                                            DataCell(
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: _filteredRecords[index].isPaid ? Colors.green.shade100 : Colors.red.shade100,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                child: Text(
-                                                  _filteredRecords[index].isPaid ? 'Đã đóng' : 'Chưa đóng',
-                                                  style: TextStyle(
-                                                    color: _filteredRecords[index].isPaid ? Colors.green.shade800 : Colors.red.shade800,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
+                                    scrollDirection: Axis.horizontal, // Allow horizontal scrolling
+                                    child: StreamBuilder<QuerySnapshot>(
+                                      stream: FirebaseFirestore.instance.collection('tuition').snapshots(),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.hasError) {
+                                          return Center(child: Text('Lỗi: ${snapshot.error}'));
+                                        }
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return const Center(child: CircularProgressIndicator());
+                                        }
+
+                                        // Map Firestore documents to TuitionRecord objects
+                                        List<TuitionRecord> tuitionRecords =
+                                        snapshot.data!.docs.map((doc) {
+                                          Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                                          return TuitionRecord.fromFirestore(doc.id, data);
+                                        }).toList();
+
+                                        // Filter records based on search query
+                                        List<TuitionRecord> filteredRecords = tuitionRecords.where((record) {
+                                          return record.mssv.contains(_searchQuery) ||
+                                              record.name.toLowerCase().contains(_searchQuery.toLowerCase());
+                                        }).toList();
+
+                                        return DataTable(
+                                          columnSpacing: 20, // Reduced spacing to fit more content
+                                          columns: const [
+                                            DataColumn(
+                                              label: Text(
+                                                'STT',
+                                                style: TextStyle(fontSize: 14),
                                               ),
                                             ),
-                                            DataCell(
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Switch(
-                                                    value: _filteredRecords[index].isPaid,
-                                                    onChanged: (bool value) {
-                                                      _updatePaymentStatus(index, value);
-                                                    },
-                                                  ),
-                                                  IconButton(
-                                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        _tuitionRecords.remove(_filteredRecords[index]);
-                                                      });
-                                                    },
-                                                  ),
-                                                ],
+                                            DataColumn(
+                                              label: Text(
+                                                'MSSV',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                'Họ và tên',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                'Lớp',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                'Khóa học',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                'Học phí',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                'Ngày đóng',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                'Trạng thái',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
+                                            ),
+                                            DataColumn(
+                                              label: Text(
+                                                'Thao tác',
+                                                style: TextStyle(fontSize: 14),
                                               ),
                                             ),
                                           ],
-                                        ),
-                                      ),
+                                          rows: List.generate(
+                                            filteredRecords.length,
+                                                (index) => DataRow(
+                                              cells: [
+                                                DataCell(
+                                                  Text(
+                                                    '${index + 1}',
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Text(
+                                                    filteredRecords[index].mssv,
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Text(
+                                                    filteredRecords[index].name,
+                                                    style: const TextStyle(fontSize: 12),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Text(
+                                                    filteredRecords[index].className,
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Text(
+                                                    filteredRecords[index].course,
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Text(
+                                                    _currencyFormat.format(filteredRecords[index].amount),
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  filteredRecords[index].paymentDate != null
+                                                      ? Text(
+                                                    DateFormat('dd/MM/yyyy')
+                                                        .format(filteredRecords[index].paymentDate!),
+                                                    style: const TextStyle(fontSize: 12),
+                                                  )
+                                                      : const Text(
+                                                    '-',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Container(
+                                                    padding:
+                                                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: filteredRecords[index].isPaid
+                                                          ? Colors.green.shade100
+                                                          : Colors.red.shade100,
+                                                      borderRadius: BorderRadius.circular(12),
+                                                    ),
+                                                    child: Text(
+                                                      filteredRecords[index].isPaid ? 'Đã đóng' : 'Chưa đóng',
+                                                      style: TextStyle(
+                                                        color: filteredRecords[index].isPaid
+                                                            ? Colors.green.shade800
+                                                            : Colors.red.shade800,
+                                                        fontSize: 10,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                DataCell(
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Switch(
+                                                        value: filteredRecords[index].isPaid,
+                                                        onChanged: (bool value) {
+                                                          _updatePaymentStatus(filteredRecords[index], value);
+                                                        },
+                                                        activeColor: Colors.green,
+                                                        inactiveThumbColor: Colors.grey,
+                                                      ),
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.delete,
+                                                          color: Colors.red,
+                                                          size: 20,
+                                                        ),
+                                                        onPressed: () {
+                                                          _deleteRecord(filteredRecords[index]);
+                                                        },
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
@@ -463,110 +554,119 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
                             ],
                           ),
                         ),
-
                         const SizedBox(width: 20),
-
                         // Right side - Statistics
                         Expanded(
-                          child: Column(
-                            children: [
-                              // Summary stats
-                              _buildStatCard(
-                                'Tổng số sinh viên',
-                                '${_tuitionRecords.length}',
-                                Icons.people,
-                                Colors.blue,
-                              ),
+                          child: SingleChildScrollView(
+                            child: StreamBuilder<QuerySnapshot>(
+                              stream: FirebaseFirestore.instance.collection('tuition').snapshots(),
+                              builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return Center(child: Text('Lỗi: ${snapshot.error}'));
+                                }
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const Center(child: CircularProgressIndicator());
+                                }
 
-                              const SizedBox(height: 15),
+                                // Map Firestore documents to TuitionRecord objects for statistics
+                                List<TuitionRecord> tuitionRecords = snapshot.data!.docs.map((doc) {
+                                  Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                                  return TuitionRecord.fromFirestore(doc.id, data);
+                                }).toList();
 
-                              _buildStatCard(
-                                'Đã đóng học phí',
-                                '${_tuitionRecords.where((record) => record.isPaid).length}',
-                                Icons.check_circle,
-                                Colors.green,
-                              ),
-
-                              const SizedBox(height: 15),
-
-                              _buildStatCard(
-                                'Chưa đóng học phí',
-                                '${_tuitionRecords.where((record) => !record.isPaid).length}',
-                                Icons.warning,
-                                Colors.orange,
-                              ),
-
-                              const SizedBox(height: 15),
-
-                              _buildStatCard(
-                                'Tổng học phí đã thu',
-                                _currencyFormat.format(_tuitionRecords
-                                    .where((record) => record.isPaid)
-                                    .fold(0.0, (sum, record) => sum + record.amount)), // Khởi tạo sum là 0.0
-                                Icons.attach_money,
-                                Colors.green,
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Charts
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(15),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.withOpacity(0.1),
-                                        spreadRadius: 1,
-                                        blurRadius: 5,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Thống kê tình trạng đóng học phí',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 15),
-                                      Expanded(
-                                        child: Stack(
-                                          children: [
-                                            Center(
-                                              child: _buildPieChart(),
-                                            ),
-                                            const Center(
-                                              child: Text(
-                                                'Học phí',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          _buildLegendItem('Đã đóng', Colors.green),
-                                          const SizedBox(width: 20),
-                                          _buildLegendItem('Chưa đóng', Colors.red),
+                                return Column(
+                                  children: [
+                                    // Summary stats
+                                    _buildStatCard(
+                                      'Tổng số sinh viên',
+                                      '${tuitionRecords.length}',
+                                      Icons.people,
+                                      Colors.blue,
+                                    ),
+                                    const SizedBox(height: 15),
+                                    _buildStatCard(
+                                      'Đã đóng học phí',
+                                      '${tuitionRecords.where((record) => record.isPaid).length}',
+                                      Icons.check_circle,
+                                      Colors.green,
+                                    ),
+                                    const SizedBox(height: 15),
+                                    _buildStatCard(
+                                      'Chưa đóng học phí',
+                                      '${tuitionRecords.where((record) => !record.isPaid).length}',
+                                      Icons.warning,
+                                      Colors.orange,
+                                    ),
+                                    const SizedBox(height: 15),
+                                    _buildStatCard(
+                                      'Tổng học phí đã thu',
+                                      _currencyFormat.format(tuitionRecords
+                                          .where((record) => record.isPaid)
+                                          .fold(0.0, (sum, record) => sum + record.amount)),
+                                      Icons.attach_money,
+                                      Colors.green,
+                                    ),
+                                    const SizedBox(height: 20),
+                                    // Charts
+                                    Container(
+                                      height: 300, // Fixed height for the chart to prevent overflow
+                                      padding: const EdgeInsets.all(15),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.grey.withOpacity(0.1),
+                                            spreadRadius: 1,
+                                            blurRadius: 5,
+                                          ),
                                         ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Thống kê tình trạng đóng học phí',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 15),
+                                          Expanded(
+                                            child: Stack(
+                                              children: [
+                                                Center(
+                                                  child: _buildPieChart(tuitionRecords),
+                                                ),
+                                                const Center(
+                                                  child: Text(
+                                                    'Học phí',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              _buildLegendItem('Đã đóng', Colors.green),
+                                              const SizedBox(width: 20),
+                                              _buildLegendItem('Chưa đóng', Colors.red),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                           ),
                         ),
                       ],
@@ -666,9 +766,9 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
     );
   }
 
-  Widget _buildPieChart() {
-    final paidCount = _tuitionRecords.where((record) => record.isPaid).length;
-    final unpaidCount = _tuitionRecords.where((record) => !record.isPaid).length;
+  Widget _buildPieChart(List<TuitionRecord> records) {
+    final paidCount = records.where((record) => record.isPaid).length;
+    final unpaidCount = records.where((record) => !record.isPaid).length;
 
     return PieChart(
       PieChartData(
@@ -677,7 +777,9 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
         sections: [
           PieChartSectionData(
             value: paidCount.toDouble(),
-            title: '${(paidCount / _tuitionRecords.length * 100).toStringAsFixed(0)}%',
+            title: records.isNotEmpty
+                ? '${(paidCount / records.length * 100).toStringAsFixed(0)}%'
+                : '0%',
             color: Colors.green,
             radius: 80,
             titleStyle: const TextStyle(
@@ -688,7 +790,9 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
           ),
           PieChartSectionData(
             value: unpaidCount.toDouble(),
-            title: '${(unpaidCount / _tuitionRecords.length * 100).toStringAsFixed(0)}%',
+            title: records.isNotEmpty
+                ? '${(unpaidCount / records.length * 100).toStringAsFixed(0)}%'
+                : '0%',
             color: Colors.red,
             radius: 80,
             titleStyle: const TextStyle(
@@ -719,19 +823,44 @@ class _TuitionFeeManagementState extends State<TuitionFeeManagement> {
 
 // Tuition Record model
 class TuitionRecord {
-  final int id;
+  final String id;
   final String mssv;
   final String name;
+  final String className;
+  final String course;
   final double amount;
   DateTime? paymentDate;
   bool isPaid;
+  final String? paymentMethod;
+  final String kioskId;
 
   TuitionRecord({
     required this.id,
     required this.mssv,
     required this.name,
+    required this.className,
+    required this.course,
     required this.amount,
     this.paymentDate,
     required this.isPaid,
+    this.paymentMethod,
+    required this.kioskId,
   });
+
+  factory TuitionRecord.fromFirestore(String id, Map<String, dynamic> data) {
+    return TuitionRecord(
+      id: id,
+      mssv: data['mssv'] ?? '',
+      name: data['ho_ten'] ?? '',
+      className: data['lop'] ?? '',
+      course: data['khoa_hoc'] ?? '',
+      amount: (data['so_tien.can_dong'] ?? 0).toDouble(),
+      paymentDate: data['ngay_thanh_toan'] != null
+          ? (data['ngay_thanh_toan'] as Timestamp).toDate()
+          : null,
+      isPaid: data['trang_thai_thanh_toan'] == 'Đã đóng',
+      paymentMethod: data['phuong_thuc_thanh_toan'],
+      kioskId: data['ma_kiosk'] ?? 'K001',
+    );
+  }
 }
